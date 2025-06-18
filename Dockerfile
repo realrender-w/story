@@ -12,16 +12,17 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
-# Copy project files
-COPY . /app
-
-# Upgrade pip and install dependencies
+# Copy requirement file first and install dependencies
+COPY requirements.txt ./
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
-# Expose port 8501 for Streamlit
+# Copy the rest of the code
+COPY . ./
+
+# Expose port
 EXPOSE 8501
 
-# Run Streamlit app
+# Start Streamlit app
 CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
 
