@@ -5,5 +5,6 @@ pillow
 numpy
 pytesseract
 fonttools
-streamlit==1.35.0  # or the latest version
+streamlit>=1.30
+
 
