@@ -1,50 +1,50 @@
 import os
-from face_swap import swap_face
-from text_replace import replace_name_in_image
+import cv2
+import insightface
+from glob import glob
 
-TEMPLATE_DIR = "templates"
-OUTPUT_DIR = "output"
+face_analyzer = None
+face_swapper = None
 
-def generate_story(child_name, child_image_path):
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+def init_models():
+    global face_analyzer, face_swapper
+    if face_analyzer is None:
+        face_analyzer = insightface.app.FaceAnalysis(name='buffalo_l')
+        face_analyzer.prepare(ctx_id=0, det_size=(640, 640))
+    if face_swapper is None:
+        face_swapper = insightface.model_zoo.get_model('models/inswapper_128.onnx')
+    return face_analyzer, face_swapper
 
-    # ✅ Step 1: Process cover page (if exists)
-    cover_template = os.path.join(TEMPLATE_DIR, "cover.png")
-    cover_output = os.path.join(OUTPUT_DIR, f"cover_{child_name.lower()}.png")
-    if os.path.exists(cover_template):
-        try:
-            replace_name_in_image(cover_template, child_name, cover_output)
-            print(f"[📘] Cover page generated: {cover_output}")
-        except Exception as e:
-            print(f"[⚠️] Failed to process cover page: {e}")
+def generate_story(child_image_path, template_dir='templates', output_dir='output'):
+    os.makedirs(output_dir, exist_ok=True)
+    analyzer, swapper = init_models()
 
-    # ✅ Step 2: Process all available pageX.png templates
-    template_files = sorted([
-        f for f in os.listdir(TEMPLATE_DIR)
-        if f.startswith("page") and f.endswith(".png")
-    ])
+    # Load child image
+    child_img = cv2.imread(child_image_path)
+    child_faces = analyzer.get(child_img)
+    if not child_faces:
+        raise ValueError("No face detected in uploaded child image.")
 
-    for filename in template_files:
-        page_number = filename.replace("page", "").replace(".png", "")
-        template_path = os.path.join(TEMPLATE_DIR, filename)
-        swapped_path = os.path.join(OUTPUT_DIR, f"{filename.replace('.png', '_swapped.png')}")
-        final_output_path = os.path.join(OUTPUT_DIR, f"page{page_number}_{child_name.lower()}.png")
+    child_face = child_faces[0]
 
-        print(f"[🖼️] Processing page {page_number}...")
+    # Loop through templates
+    template_paths = sorted(glob(os.path.join(template_dir, 'page*.png')))
 
-        # Step 1: Face swap
-        try:
-            swap_face(template_path, child_image_path, swapped_path)
-        except Exception as e:
-            print(f"[❌] Face swap failed on page {page_number}: {e}")
+    swapped_pages = []
+    for template_path in template_paths:
+        template_img = cv2.imread(template_path)
+        detected_faces = analyzer.get(template_img)
+
+        if not detected_faces:
+            print(f"⚠️ No face detected in: {template_path}")
             continue
 
-        # Step 2: Text replacement
-        try:
-            if os.path.exists(swapped_path):
-                replace_name_in_image(swapped_path, child_name, final_output_path)
-            else:
-                print(f"[⚠️] Skipped text replacement — swapped file not found for page {page_number}.")
-        except Exception as e:
-            print(f"[❌] Text replacement failed on page {page_number}: {e}")
+        # Swap face onto first detected face in template
+        swapped_img = swapper.get(template_img, detected_faces[0], child_face)
+
+        output_path = os.path.join(output_dir, os.path.basename(template_path))
+        cv2.imwrite(output_path, swapped_img)
+        swapped_pages.append(output_path)
+
+    return swapped_pages
 

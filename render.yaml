@@ -1,7 +1,0 @@
-services:
-  - type: web
-    name: storybook-generator
-    env: docker
-    plan: starter
-    dockerfilePath: Dockerfile
-    region: singapore
