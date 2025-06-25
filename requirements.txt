@@ -1,10 +1,7 @@
-insightface==0.7.3
-onnxruntime
-opencv-python
-pillow
+streamlit
+torch
+Pillow
 numpy
-pytesseract
-fonttools
-streamlit>=1.30
+insightface
 
 
